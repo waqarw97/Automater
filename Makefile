@@ -10,7 +10,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -g
 
 # Source files
-SRCS = main.cpp employee.cpp availability.cpp shift.cpp schedule.cpp TimeUtility.cpp
+SRCS = main.cpp employee.cpp availability.cpp shift.cpp schedule.cpp TimeUtility.cpp scheduleGenerator.cpp
 
 # Object files (derived from source files)
 OBJS = $(SRCS:.cpp=.o)

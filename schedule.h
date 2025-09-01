@@ -30,6 +30,7 @@ public:
     std::string getCreatedAt() const;
     std::string getLastModified() const;
     const std::vector<Shift>& getShifts() const;
+    std::vector<Shift>& getShifts();
     
     // Setters
     void setName(const std::string& name);

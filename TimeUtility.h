@@ -29,6 +29,9 @@ public:
     
     // Convert HH:MM format to minutes since midnight
     static int timeStringToMinutes(const std::string& time_str);
+
+    // Increment a date string by one day
+    static std::string incrementDate(const std::string& date_str);
 };
 
 #endif // TIME_UTILITY_H

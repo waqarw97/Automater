@@ -37,7 +37,7 @@ bool TimeUtility::canEmployeeWorkShift(int employee_id, const Shift& shift,
                                      const std::vector<Availability>& availabilities) {
     // For now, use a simplified approach - assuming all shifts are on Monday (day 1)
     // Later we can implement getDayOfWeekFromDate to get the actual day
-    int day_of_week = 1; // Assuming Monday for initial testing
+    int day_of_week = getDayOfWeekFromDate(shift.getDate());
     
     // Check all availabilities for this employee
     for (const auto& avail : availabilities) {
@@ -72,4 +72,21 @@ int TimeUtility::getDayOfWeekFromDate(const std::string& date_str) {
     
     // Get day of week (0 = Sunday, 1 = Monday, etc.)
     return result_tm->tm_wday;
+}
+
+
+
+std::string TimeUtility::incrementDate(const std::string& date_str) {
+    struct tm tm_date = {};
+    int year, month, day;
+    sscanf(date_str.c_str(), "%d-%d-%d", &year, &month, &day);
+    tm_date.tm_year = year - 1900;
+    tm_date.tm_mon = month - 1;
+    tm_date.tm_mday = day;
+    tm_date.tm_hour = 12; // avoid DST issues
+    time_t t = mktime(&tm_date) + 60 * 60 * 24;
+    struct tm* next_tm = localtime(&t);
+    char buf[11];
+    strftime(buf, sizeof(buf), "%Y-%m-%d", next_tm);
+    return std::string(buf);
 }

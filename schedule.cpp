@@ -43,6 +43,10 @@ std::string Schedule::getLastModified() const {
     return last_modified;
 }
 
+std::vector<Shift>& Schedule::getShifts() {
+    return shifts;
+}
+
 const std::vector<Shift>& Schedule::getShifts() const {
     return shifts;
 }
