@@ -17,16 +17,19 @@ struct DaySchedule {
 class ScheduleGenerator {
 public:
     ScheduleGenerator(const std::vector<Employee>& employees, 
-                      const std::map<int, std::vector<DaySchedule>>& employee_preferences);
+                      const std::map<int, std::vector<DaySchedule>>& employee_preferences,
+                      const std::map<int, std::map<std::string, std::pair<std::string,int>>>& per_date_overrides);
     
     bool generateSchedule(Schedule& schedule);
     
 private:
     const std::vector<Employee>& employees;
     const std::map<int, std::vector<DaySchedule>>& employee_preferences;
+    const std::map<int, std::map<std::string, std::pair<std::string,int>>>& per_date_overrides;
     
     int calculateShiftHours(const Shift& shift);
     bool doesEmployeeHaveOverlappingShift(int employee_id, const Shift& candidate_shift, const Schedule& schedule);
+    std::pair<std::string, int> getEffectivePreference(int employee_id, const std::string& current_date, int day_of_week);
 };
 
 #endif

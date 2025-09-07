@@ -106,9 +106,10 @@ int main() {
     // employees.push_back(Employee(3, "Bob Johnson", 15, 30, {1}));   // 20 hrs/week avg, evening shifts
     
     // New employees
-    employees.push_back(Employee(1, "Wesley", 35, 50, {1}));      // 70 hrs/2 weeks = 35/week min
-    employees.push_back(Employee(2, "Crystal", 40, 50, {1}));    // 80 hrs/2 weeks = 40/week min  
-    employees.push_back(Employee(3, "Jay", 40, 50, {1}));        // 80 hrs/2 weeks = 40/week min
+    employees.push_back(Employee(1, "Sierra", 35, 40, {1}));     // 35 min, 40 max hours per week
+    employees.push_back(Employee(2, "Susi", 40, 40, {1}));       // 40 min, 40 max hours per week  
+    employees.push_back(Employee(3, "Tanisha", 35, 40, {1}));    // 35 min, 40 max hours per week
+    employees.push_back(Employee(4, "Samantha", 0, 40, {1}));    // Only works Sundays
 
     std::cout << "Created " << employees.size() << " employees.\n\n"; // Added newline for spacing
 
@@ -121,55 +122,84 @@ int main() {
     // Jane (ID 2) - Flexible, off Mon/Tue, works 60 hrs per 2 weeks  
     // Bob (ID 3) - Evening person, off Wed/Thu, works 40 hrs per 2 weeks
     
-    // Wesley (ID 1) - Mornings, off Wed/Thu/Sun, needs 70 hrs per 2 weeks
-    std::vector<DaySchedule> wesley_schedule = {
+    // Sierra (ID 1) - Anytime preference
+    std::vector<DaySchedule> sierra_schedule = {
+        {0, "anytime", 0},    // Sunday - anytime
+        {1, "anytime", 0},    // Monday - anytime
+        {2, "anytime", 0},    // Tuesday - anytime
+        {3, "anytime", 0},    // Wednesday - anytime
+        {4, "anytime", 0},    // Thursday - anytime
+        {5, "anytime", 0},    // Friday - anytime
+        {6, "anytime", 0}     // Saturday - anytime
+    };
+    
+    // Susi (ID 2) - Morning shifts only, off Friday and Sunday
+    std::vector<DaySchedule> susi_schedule = {
         {0, "off", 0},        // Sunday off
         {1, "morning", 0},    // Monday morning
-        {2, "morning", +1},   // Tuesday morning, stay late
-        {3, "off", 0},        // Wednesday off
-        {4, "off", 0},        // Thursday off
-        {5, "morning", +2},   // Friday morning, stay extra late
-        {6, "morning", +1}    // Saturday morning, stay late
-    };
-    
-    // Crystal (ID 2) - Evenings, off Fri/Sat, needs 80 hrs per 2 weeks
-    std::vector<DaySchedule> crystal_schedule = {
-        {0, "evening", 0},    // Sunday evening
-        {1, "evening", 0},    // Monday evening
-        {2, "evening", 0},    // Tuesday evening
-        {3, "evening", 0},    // Wednesday evening, standard time
-        {4, "evening", 0},    // Thursday evening, standard time
+        {2, "morning", 0},    // Tuesday morning
+        {3, "morning", 0},    // Wednesday morning
+        {4, "morning", 0},    // Thursday morning
         {5, "off", 0},        // Friday off
-        {6, "off", 0}         // Saturday off
+        {6, "morning", 0}     // Saturday morning
     };
     
-    // Jay (ID 3) - Flexible, off Mon/Tue, needs 80 hrs per 2 weeks
-    std::vector<DaySchedule> jay_schedule = {
-        {0, "anytime", 0},    // Sunday - flexible
+    // Tanisha (ID 3) - Anytime preference, needs Sep 10-12 off (will add as override)
+    std::vector<DaySchedule> tanisha_schedule = {
+        {0, "anytime", 0},    // Sunday - anytime
+        {1, "anytime", 0},    // Monday - anytime
+        {2, "anytime", 0},    // Tuesday - anytime
+        {3, "anytime", 0},    // Wednesday - anytime
+        {4, "anytime", 0},    // Thursday - anytime
+        {5, "anytime", 0},    // Friday - anytime
+        {6, "anytime", 0}     // Saturday - anytime
+    };
+    
+    // Samantha (ID 4) - Only works Sunday mornings
+    std::vector<DaySchedule> samantha_schedule = {
+        {0, "morning", 0},    // Sunday morning only
         {1, "off", 0},        // Monday off
         {2, "off", 0},        // Tuesday off
-        {3, "anytime", 0},    // Wednesday - flexible
-        {4, "anytime", 0},    // Thursday - flexible
-        {5, "anytime", 0},    // Friday - flexible
-        {6, "anytime", 0}     // Saturday - flexible
+        {3, "off", 0},        // Wednesday off
+        {4, "off", 0},        // Thursday off
+        {5, "off", 0},        // Friday off
+        {6, "off", 0}         // Saturday off
     };
 
     // Create the employee preferences map
     std::map<int, std::vector<DaySchedule>> employee_preferences;
-    employee_preferences[1] = wesley_schedule;   // Wesley's ID is 1
-    employee_preferences[2] = crystal_schedule;  // Crystal's ID is 2
-    employee_preferences[3] = jay_schedule;      // Jay's ID is 3
+    employee_preferences[1] = sierra_schedule;
+    employee_preferences[2] = susi_schedule;
+    employee_preferences[3] = tanisha_schedule;
+    employee_preferences[4] = samantha_schedule;
 
-    std::cout << "Created " << availabilities.size() << " availability slots.\n\n"; // Added newline
+    // Per-date overrides: employee_id -> { "YYYY-MM-DD" -> (preference, modifier) }
+    std::map<int, std::map<std::string, std::pair<std::string,int>>> per_date_overrides;
+    
+    // Sierra overrides: Sep 5-8 off and Sep 13 off
+    per_date_overrides[1]["2024-09-05"] = {"off", 0};  // Thursday off
+    per_date_overrides[1]["2024-09-06"] = {"off", 0};  // Friday off
+    per_date_overrides[1]["2024-09-07"] = {"off", 0};  // Saturday off
+    per_date_overrides[1]["2024-09-08"] = {"off", 0};  // Sunday off
+    per_date_overrides[1]["2024-09-13"] = {"off", 0};  // Friday off
+    
+    // Susi overrides: Doesn't start until Sep 5 (Sep 1-4 off)
+    per_date_overrides[2]["2024-09-01"] = {"off", 0};  // Sunday off
+    per_date_overrides[2]["2024-09-02"] = {"off", 0};  // Monday off
+    per_date_overrides[2]["2024-09-03"] = {"off", 0};  // Tuesday off
+    per_date_overrides[2]["2024-09-04"] = {"off", 0};  // Wednesday off
+    
+    // Tanisha overrides: Sep 10-12 off (made this up as requested)
+    per_date_overrides[3]["2024-09-10"] = {"off", 0};  // Tuesday off
+    per_date_overrides[3]["2024-09-11"] = {"off", 0};  // Wednesday off
+    per_date_overrides[3]["2024-09-12"] = {"off", 0};  // Thursday off
 
-    // Step 3: Create a schedule and shifts
-    std::cout << "Creating schedule and shifts...\n";
-    // Create a schedule for 2 weeks starting April 1st, 2024
-    // Create a schedule for 2 weeks starting September 1st, 2024
-    Schedule tobacco_plus(1, "Tobacco Plus", "2025-09-01", "2025-09-14"); // Schedule ID 1
+    // Create the schedule
+    Schedule tobacco_plus(1, "Tobacco Plus Schedule", "2024-09-01", "2024-09-14");
+
     // The ScheduleGenerator will be responsible for creating shifts dynamically.
     // We just need to pass the schedule and the shifts to the generator.
-    ScheduleGenerator generator(employees, employee_preferences);
+    ScheduleGenerator generator(employees, employee_preferences, per_date_overrides);
     generator.generateSchedule(tobacco_plus);
 
     // Print the schedule table

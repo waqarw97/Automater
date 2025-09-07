@@ -11,8 +11,9 @@
 #include <set> // Added for std::set
 
 ScheduleGenerator::ScheduleGenerator(const std::vector<Employee>& employees,
-                                     const std::map<int, std::vector<DaySchedule>>& employee_preferences)
-    : employees(employees), employee_preferences(employee_preferences) {}
+                                     const std::map<int, std::vector<DaySchedule>>& employee_preferences,
+                                     const std::map<int, std::map<std::string, std::pair<std::string,int>>>& per_date_overrides)
+    : employees(employees), employee_preferences(employee_preferences), per_date_overrides(per_date_overrides) {}
 
 std::pair<std::string, std::string> getStoreHours(int day_of_week) {
     if (day_of_week == 0) return {"09:00", "21:00"}; // Sunday: 9–9
@@ -25,8 +26,8 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
     
     // Helper function to determine week number from date
     auto getWeekNumber = [](const std::string& date) {
-        int day;
-        sscanf(date.c_str(), "2024-04-%d", &day);
+        int year, month, day;
+        sscanf(date.c_str(), "%d-%d-%d", &year, &month, &day);
         return (day - 1) / 7; // Week 0: days 1-7, Week 1: days 8-14
     };
     
@@ -55,17 +56,36 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
         // For each employee, check their preference for this day
         std::vector<int> available_employees;
         for (const auto& [employee_id, preferences] : employee_preferences) {
-            // Find the DaySchedule for this day_of_week
-            for (const auto& day_schedule : preferences) {
-                if (day_schedule.day == day_of_week) {
-                    std::cout << "  Employee " << employee_id << " prefers '" 
-                              << day_schedule.preference << "' on day " << day_of_week << std::endl;
-                    
-                    // If they're not off, add them to available list
-                    if (day_schedule.preference != "off") {
+            // Check for per-date override first
+            auto emp_overrides = per_date_overrides.find(employee_id);
+            if (emp_overrides != per_date_overrides.end()) {
+                auto date_override = emp_overrides->second.find(current_date);
+                if (date_override != emp_overrides->second.end()) {
+                    // Found override for this date
+                    std::string override_preference = date_override->second.first;
+                    if (override_preference != "off") {
                         available_employees.push_back(employee_id);
                     }
-                    break;
+                } else {
+                    // No override for this date, check weekly preferences
+                    for (const auto& day_schedule : preferences) {
+                        if (day_schedule.day == day_of_week) {
+                            if (day_schedule.preference != "off") {
+                                available_employees.push_back(employee_id);
+                            }
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // No overrides at all, fall back to weekly preferences
+                for (const auto& day_schedule : preferences) {
+                    if (day_schedule.day == day_of_week) {
+                        if (day_schedule.preference != "off") {
+                            available_employees.push_back(employee_id);
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -120,20 +140,17 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
                 if (employees_assigned_today >= 2) break; // Daily limit reached
                 
                 // Find this employee's DaySchedule for today
-                for (const auto& [emp_id, preferences] : employee_preferences) {
-                    if (emp_id == employee_id) {
-                        for (const auto& day_schedule : preferences) {
-                            if (day_schedule.day == day_of_week) {
-                                if (day_schedule.preference == "morning" && !has_morning_coverage) {
+                auto [preference, modifier] = getEffectivePreference(employee_id, current_date, day_of_week);
+                                if (preference == "morning" && !has_morning_coverage) {
                                     std::cout << "    Employee " << employee_id 
-                                              << ": preference='morning', modifier=" << day_schedule.shift_modifier << std::endl;
+                                              << ": preference='morning', modifier=" << modifier << std::endl;
                                     
                                     // Calculate shift times
                                     std::string base_start = store_hours.first;  // 08:00
                                     std::string base_end = "15:00";              // 3pm handoff
                                     
                                     // Apply shift modifier (modifier adjusts end time)
-                                    int end_hour = 15 + day_schedule.shift_modifier;
+                                    int end_hour = 15 + modifier;
                                     char modified_end[6];
                                     snprintf(modified_end, sizeof(modified_end), "%02d:00", end_hour);
                                     
@@ -175,32 +192,23 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
                                         std::cout << "      Employee " << employee_id << " would exceed max hours - skipping" << std::endl;
                                     }
                                 }
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
             }
             // Process evening preferences second
             for (int employee_id : available_employees) {
                 if (employees_assigned_today >= 2) break; // Daily limit reached
                 
                 // Find this employee's DaySchedule for today
-                for (const auto& [emp_id, preferences] : employee_preferences) {
-                    if (emp_id == employee_id) {
-                        for (const auto& day_schedule : preferences) {
-                            if (day_schedule.day == day_of_week) {
-                                if (day_schedule.preference == "evening" && !has_evening_coverage) {
+                auto [preference, modifier] = getEffectivePreference(employee_id, current_date, day_of_week);
+                                if (preference == "evening" && !has_evening_coverage) {
                                     std::cout << "    Employee " << employee_id 
-                                              << ": preference='evening', modifier=" << day_schedule.shift_modifier << std::endl;
+                                              << ": preference='evening', modifier=" << modifier << std::endl;
                                     
                                     // Calculate shift times
                                     std::string base_start = "15:00";              // 3pm handoff
                                     std::string base_end = store_hours.second;     // store close
                                     
                                     // Apply shift modifier (modifier adjusts start time)
-                                    int start_hour = 15 + day_schedule.shift_modifier;
+                                    int start_hour = 15 + modifier;
                                     char modified_start[6];
                                     snprintf(modified_start, sizeof(modified_start), "%02d:00", start_hour);
                                     
@@ -242,25 +250,16 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
                                         std::cout << "      Employee " << employee_id << " would exceed max hours - skipping" << std::endl;
                                     }
                                 }
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
             }
             // Process anytime preferences last
             for (int employee_id : available_employees) {
                 if (employees_assigned_today >= 2) break; // Daily limit reached
                 
                 // Find this employee's DaySchedule for today
-                for (const auto& [emp_id, preferences] : employee_preferences) {
-                    if (emp_id == employee_id) {
-                        for (const auto& day_schedule : preferences) {
-                            if (day_schedule.day == day_of_week) {
-                                if (day_schedule.preference == "anytime") {
+                auto [preference, modifier] = getEffectivePreference(employee_id, current_date, day_of_week);
+                                if (preference == "anytime") {
                                     std::cout << "    Employee " << employee_id 
-                                              << ": preference='anytime', modifier=" << day_schedule.shift_modifier << std::endl;
+                                              << ": preference='anytime', modifier=" << modifier << std::endl;
                                     
                                     // Check what coverage we need and assign accordingly
                                     if (!has_morning_coverage) {
@@ -268,7 +267,7 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
                                         std::string base_start = store_hours.first;
                                         std::string base_end = "15:00";
                                         
-                                        int end_hour = 15 + day_schedule.shift_modifier;
+                                        int end_hour = 15 + modifier;
                                         char modified_end[6];
                                         snprintf(modified_end, sizeof(modified_end), "%02d:00", end_hour);
                                         
@@ -313,7 +312,7 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
                                         std::string base_start = "15:00";
                                         std::string base_end = store_hours.second;
                                         
-                                        int start_hour = 15 + day_schedule.shift_modifier;
+                                        int start_hour = 15 + modifier;
                                         char modified_start[6];
                                         snprintf(modified_start, sizeof(modified_start), "%02d:00", start_hour);
                                         
@@ -357,12 +356,6 @@ bool ScheduleGenerator::generateSchedule(Schedule& schedule) {
                                         std::cout << "      Both shifts covered - skipping anytime employee" << std::endl;
                                     }
                                 }
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
             }
         }
         
@@ -396,4 +389,30 @@ bool ScheduleGenerator::doesEmployeeHaveOverlappingShift(
         return true;
     }
     return false;
+}
+
+std::pair<std::string, int> ScheduleGenerator::getEffectivePreference(int employee_id, const std::string& current_date, int day_of_week) {
+    // Check for per-date override first
+    auto emp_overrides = per_date_overrides.find(employee_id);
+    if (emp_overrides != per_date_overrides.end()) {
+        auto date_override = emp_overrides->second.find(current_date);
+        if (date_override != emp_overrides->second.end()) {
+            // Found an override for this employee on this date - return it
+            return {date_override->second.first, date_override->second.second};
+        }
+    }
+    
+    // No override found, fall back to weekly preferences
+    for (const auto& [emp_id, preferences] : employee_preferences) {
+        if (emp_id == employee_id) {
+            for (const auto& day_schedule : preferences) {
+                if (day_schedule.day == day_of_week) {
+                    return {day_schedule.preference, day_schedule.shift_modifier};
+                }
+            }
+        }
+    }
+    
+    // Fallback if nothing found
+    return {"off", 0};
 }
